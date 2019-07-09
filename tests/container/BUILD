@@ -541,6 +541,31 @@ container_image(
 )
 
 container_image(
+    name = "test_large_image_bazel",
+    base = "@test_bazel//image",
+    files = [
+        "//testdata:bar",
+        "//testdata:foo",
+    ],
+)
+
+new_container_push(
+    name = "new_push_test_large_bazel_image",
+    format = "legacy",
+    image = ":test_large_image_bazel",
+    registry = "gcr.io",
+    repository = "asci-toolchain-sandbox/large_bazel_image_test",
+)
+
+container_push(
+    name = "push_test_large_bazel_image",
+    format = "Docker",
+    image = ":test_large_image_bazel",
+    registry = "gcr.io",
+    repository = "asci-toolchain-sandbox/large_bazel_image_test",
+)
+
+container_image(
     name = "new_alpine_linux_armv6_image_oci",
     base = "@new_alpine_linux_armv6_fixed_id//image:image",
     files = [

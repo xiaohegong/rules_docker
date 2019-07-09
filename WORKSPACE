@@ -79,6 +79,13 @@ new_container_pull(
 )
 
 new_container_pull(
+    name = "test_bazel",
+    registry = "gcr.io",
+    repository = "cloud-marketplace-containers/google/bazel",
+    tag = "0.27.1",
+)
+
+new_container_pull(
     name = "new_alpine_linux_amd64",
     registry = "index.docker.io",
     repository = "library/alpine",
