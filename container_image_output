@@ -1,0 +1,21 @@
+blobs
+<source file external/test_bazel/image/0.tar.gz>,
+<source file external/test_bazel/image/1.tar.gz>,
+<source file external/test_bazel/image/2.tar.gz>, 
+<source file external/test_bazel/image/3.tar.gz>, 
+<source file external/test_bazel/image/4.tar.gz>, 
+<source file external/test_bazel/image/5.tar.gz>, 
+<generated file tests/container/test_large_image_bazel-layer.tar.gz>, 
+
+blobsums
+<generated file external/test_bazel/image/0.tar.gz.sha256>, 
+<generated file external/test_bazel/image/1.tar.gz.sha256>, 
+<generated file external/test_bazel/image/2.tar.gz.sha256>,
+<generated file external/test_bazel/image/3.tar.gz.sha256>, 
+<generated file external/test_bazel/image/4.tar.gz.sha256>,
+<generated file external/test_bazel/image/5.tar.gz.sha256>,
+<generated file tests/container/test_large_image_bazel-layer.tar.gz.sha256>
+
+
+content of <target_name>.0.config
+"sha256:9a76d77e56a3e4e179df45b8b18e9a916b45e1fae74f6cfa66a27f940209c9f2", "sha256:e5b515392e6f17ca37be566105eca2ff7734125e3107114880bd839ddc16acdd", "sha256:84ff92691f909a05b224e1c56abb4864f01b4f8e3c854e4bb4c7baf1d3f6d652", "sha256:e8e58405009121f28e30e66a1dbbb6e934232f608a5344242c9b7036565b4d95", "sha256:da2c4cdebebb15f99855434aa50c661ab2512ede7b814a9358334002550db479", "sha256:84ff92691f909a05b224e1c56abb4864f01b4f8e3c854e4bb4c7baf1d3f6d652", "sha256:c51ca07a5db8c3ab5a21019a5c084aa17fc74baed5e41b6cc989a36712bb46bf"
