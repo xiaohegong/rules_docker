@@ -23,12 +23,11 @@ import (
 	"path/filepath"
 
 	"github.com/bazelbuild/rules_docker/container/go/pkg/compat"
-	"github.com/bazelbuild/rules_docker/container/go/pkg/oci"
+	"github.com/bazelbuild/rules_docker/container/go/pkg/utils"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
-	"github.com/google/go-containerregistry/pkg/v1/tarball"
 	"github.com/pkg/errors"
 )
 
@@ -111,13 +110,13 @@ func main() {
 		}
 	}
 
-	img, err := readImage(imgSrc, *format)
+	img, err := utils.ReadImage(imgSrc, *format)
 	if err != nil {
-		log.Fatalf("error reading from %s: %v", imgSrc, err)
+		log.Fatalf("Error reading from %s: %v", imgSrc, err)
 	}
 
 	if err := push(*dst, img); err != nil {
-		log.Fatalf("error pushing image to %s: %v", *dst, err)
+		log.Fatalf("Error pushing image to %s: %v", *dst, err)
 	}
 
 	log.Printf("Successfully pushed %s image from %s to %s", *format, imgSrc, *dst)
@@ -139,19 +138,4 @@ func push(dst string, img v1.Image) error {
 	}
 
 	return nil
-}
-
-// readImage returns a v1.Image after reading an legacy layout, an OCI layout or a Docker tarball from src.
-func readImage(src, format string) (v1.Image, error) {
-	if format == "oci" {
-		return oci.Read(src)
-	}
-	if format == "legacy" {
-		return compat.Read(src)
-	}
-	if format == "docker" {
-		return tarball.ImageFromPath(src, nil)
-	}
-
-	return nil, errors.Errorf("unknown image format %q", format)
 }

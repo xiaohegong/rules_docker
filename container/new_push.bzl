@@ -22,6 +22,7 @@ load("@io_bazel_rules_docker//container:providers.bzl", "PushInfo")
 load(
     "//container:layer_tools.bzl",
     _layer_tools = "tools",
+    _get_layers = "get_from_target",
 )
 load(
     "//container:utils.bzl",
@@ -40,11 +41,10 @@ def _impl(ctx):
 
     # TODO (xiaohegong): 1) Possible optimization for efficiently pushing intermediate
     # representation, similar with the old python implementation, e.g., push-by-layer.
-    # Some of the digester arguments omitted from before: --tarball, --config, --manifest, --digest, --layer, --oci.
-    # 2) The old implementation outputs a {image_name}.digest for compatibility with container_digest, omitted for now.
-    # 3) Use and implementation of attr.stamp.
+    # 2) Use and implementation of attr.stamp.
 
     pusher_args = []
+    digester_args = []
 
     # Parse and get destination registry to be pushed to
     registry = ctx.expand_make_variables("registry", ctx.attr.registry, {})
@@ -71,6 +71,7 @@ def _impl(ctx):
                 pusher_args += ["-src", "{index_dir}".format(
                     index_dir = _get_runfile_path(ctx, f),
                 )]
+                digester_args += ["-src", str(f.path)]
                 found = True
         if not found:
             fail("Did not find an index.json in the image attribute {} specified to {}".format(ctx.attr.image, ctx.label))
@@ -80,16 +81,35 @@ def _impl(ctx):
         if len(ctx.files.image) > 1:
             fail("Attribute image {} to {} had {} files. Expected exactly 1".format(ctx.attr.image, ctx.label, len(ctx.files.image)))
         pusher_args += ["-src", _get_runfile_path(ctx, ctx.files.image[0])]
+        digester_args += ["-src", ctx.files.image[0].path]
     if ctx.attr.format == "legacy":
-        legacy_dir = generate_legacy_dir(ctx)
+        # Construct container_parts for input to pusher.
+        image = _get_layers(ctx, ctx.label.name, ctx.attr.image)
+        legacy_dir = generate_legacy_dir(ctx, image["config"], image["manifest"], image.get("zipped_layer", []))
         temp_files, config = legacy_dir["temp_files"], legacy_dir["config"]
 
         pusher_args += ["-src", "{}".format(_get_runfile_path(ctx, config))]
+        digester_args += ["-src", str(config.path)]
 
-        for layer_path in legacy_dir["layers"]:
-            pusher_args += ["-layers", "{}".format(_get_runfile_path(ctx, layer_path))]
+        for layer_file in legacy_dir["layers"]:
+            pusher_args += ["-layers", "{}".format(_get_runfile_path(ctx, layer_file))]
+            digester_args += ["-layers", layer_file.path]
 
-    pusher_args += ["-format", str(ctx.attr.format)]
+    pusher_args += ["-dst", "{registry}/{repository}:{tag}".format(
+        registry = registry,
+        repository = repository,
+        tag = tag,
+    )]
+
+    digester_args += ["dst", str(ctx.outputs.digest)]
+    ctx.actions.run(
+        inputs = image_files,
+        outputs = [ctx.outputs.digest],
+        executable = ctx.executable._digester,
+        arguments = [digester_args],
+        tools = ctx.attr._digester[DefaultInfo].default_runfiles.files,
+        mnemonic = "ContainerPushDigest",
+    )
 
     # If the docker toolchain is configured to use a custom client config
     # directory, use that instead
@@ -102,13 +122,13 @@ def _impl(ctx):
         pusher_runfiles += temp_files
     else:
         pusher_runfiles += ctx.files.image
-    runfiles = ctx.runfiles(files = pusher_runfiles)
+    runfiles = runfiles.merge(ctx.runfiles(files = pusher_runfiles))
     runfiles = runfiles.merge(ctx.attr._pusher[DefaultInfo].default_runfiles)
 
     ctx.actions.expand_template(
         template = ctx.file._tag_tpl,
         substitutions = {
-            "%{args}": " ".join(pusher_args),
+            "%{pusher_args}": " ".join(pusher_args),
             "%{container_pusher}": _get_runfile_path(ctx, ctx.executable._pusher),
         },
         output = ctx.outputs.executable,
@@ -165,7 +185,7 @@ new_container_push = rule(
             doc = "(optional) The label of the file with tag value. Overrides 'tag'.",
         ),
         "_digester": attr.label(
-            default = "@containerregistry//:digester",
+            default = Label("@io_bazel_rules_docker//container/go/cmd/digester:digester"),
             cfg = "host",
             executable = True,
         ),
@@ -183,4 +203,7 @@ new_container_push = rule(
     executable = True,
     toolchains = ["@io_bazel_rules_docker//toolchains/docker:toolchain_type"],
     implementation = _impl,
+    outputs = {
+        "digest": "%{name}.digest",
+    },
 )
