@@ -119,7 +119,7 @@ func main() {
 		log.Fatalf("Error outputting digest file to %s: %v", *dst, err)
 	}
 
-	log.Println("Successfully generated image digest file at %s", *dst)
+	log.Printf("Successfully generated image digest file at %s", *dst)
 }
 
 // WriteDigest outputs digest to a "digest file" at dst. Digest is the image manifest's sha256 hash.

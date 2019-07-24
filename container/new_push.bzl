@@ -45,6 +45,7 @@ def _impl(ctx):
 
     pusher_args = []
     digester_args = []
+    digester_input = []
 
     # Parse and get destination registry to be pushed to
     registry = ctx.expand_make_variables("registry", ctx.attr.registry, {})
@@ -57,16 +58,11 @@ def _impl(ctx):
         tag = "$(cat {})".format(_get_runfile_path(ctx, ctx.file.tag_file))
         runfiles_tag_file = [ctx.file.tag_file]
 
-    pusher_args += ["-dst", "{registry}/{repository}:{tag}".format(
-        registry = registry,
-        repository = repository,
-        tag = tag,
-    )]
-
     # Find and set src to correct paths depending the image format to be pushed
     if ctx.attr.format == "oci":
         found = False
         for f in ctx.files.image:
+            digester_input.append(f)
             if f.basename == "index.json":
                 pusher_args += ["-src", "{index_dir}".format(
                     index_dir = _get_runfile_path(ctx, f),
@@ -82,6 +78,7 @@ def _impl(ctx):
             fail("Attribute image {} to {} had {} files. Expected exactly 1".format(ctx.attr.image, ctx.label, len(ctx.files.image)))
         pusher_args += ["-src", _get_runfile_path(ctx, ctx.files.image[0])]
         digester_args += ["-src", ctx.files.image[0].path]
+        digester_input = [ctx.files.image[0]]
     if ctx.attr.format == "legacy":
         # Construct container_parts for input to pusher.
         image = _get_layers(ctx, ctx.label.name, ctx.attr.image)
@@ -90,6 +87,7 @@ def _impl(ctx):
 
         pusher_args += ["-src", "{}".format(_get_runfile_path(ctx, config))]
         digester_args += ["-src", str(config.path)]
+        digester_input = temp_files
 
         for layer_file in legacy_dir["layers"]:
             pusher_args += ["-layers", "{}".format(_get_runfile_path(ctx, layer_file))]
@@ -99,16 +97,16 @@ def _impl(ctx):
         registry = registry,
         repository = repository,
         tag = tag,
-    )]
+    ), "-format", str(ctx.attr.format)]
 
-    digester_args += ["dst", str(ctx.outputs.digest)]
+    digester_args += ["-dst", str(ctx.outputs.digest.path), "-format", str(ctx.attr.format)]
     ctx.actions.run(
-        inputs = image_files,
+        inputs = digester_input,
         outputs = [ctx.outputs.digest],
         executable = ctx.executable._digester,
-        arguments = [digester_args],
+        arguments = digester_args,
         tools = ctx.attr._digester[DefaultInfo].default_runfiles.files,
-        mnemonic = "ContainerPushDigest",
+        mnemonic = "NewContainerPushDigest",
     )
 
     # If the docker toolchain is configured to use a custom client config
@@ -122,9 +120,9 @@ def _impl(ctx):
         pusher_runfiles += temp_files
     else:
         pusher_runfiles += ctx.files.image
-    runfiles = runfiles.merge(ctx.runfiles(files = pusher_runfiles))
+    runfiles = ctx.runfiles(files = pusher_runfiles)
     runfiles = runfiles.merge(ctx.attr._pusher[DefaultInfo].default_runfiles)
-
+    print(" ".join(pusher_args))
     ctx.actions.expand_template(
         template = ctx.file._tag_tpl,
         substitutions = {
